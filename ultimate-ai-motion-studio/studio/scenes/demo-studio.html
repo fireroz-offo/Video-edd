@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Demo – 30s</title>
+<style>
+html,body{margin:0;height:100%;background:#0b0d12;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Inter,sans-serif}
+canvas{display:block}
+#sub{position:fixed;left:0;right:0;bottom:9%;text-align:center;color:#fff;font-size:clamp(16px,3.2vmin,40px);font-weight:600;text-shadow:0 2px 12px #000;padding:0 8%}
+#ui{position:fixed;left:10px;top:10px;color:#9aa4b2;font-size:12px}
+#ui button{background:#1b2030;color:#cfd6e4;border:1px solid #2c3550;border-radius:6px;padding:4px 10px}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none}
+</style></head><body>
+<div id="ui"><button id="pp">Pause</button> <span id="lab"></span></div>
+<div id="sub"></div><div id="fade"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const DURATION=30; window.DURATION=DURATION;
+const ACC=0x4cc9f0, WARM=0xf4b942;
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const ss=x=>{x=clamp(x);return x*x*(3-2*x)};
+const lerp=(a,b,k)=>a+(b-a)*k;
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0b0d12);
+scene.fog=new THREE.Fog(0x0b0d12,25,120);
+const cam=new THREE.PerspectiveCamera(50,1,0.1,300);
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);cam.aspect=w/h;
+  cam.fov=w<h?70:50;cam.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+
+// lights
+scene.add(new THREE.HemisphereLight(0x8ab4ff,0x0b0d12,0.5));
+const key=new THREE.DirectionalLight(0xffffff,0.9);key.position.set(60,40,30);key.castShadow=true;
+key.shadow.mapSize.set(1024,1024);Object.assign(key.shadow.camera,{left:-40,right:40,top:40,bottom:-40,far:150});
+scene.add(key);scene.add(key.target);
+const rim=new THREE.PointLight(ACC,1.2,60);scene.add(rim);
+
+// text helper
+function textMesh(str,h,color='#ffffff',font='700 180px system-ui,sans-serif'){
+  const c=document.createElement('canvas');const x=c.getContext('2d');
+  x.font=font;const w=Math.ceil(x.measureText(str).width)+40;c.width=w;c.height=260;
+  x.font=font;x.fillStyle=color;x.textBaseline='middle';x.textAlign='center';x.fillText(str,w/2,135);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(h*w/260,h),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));
+  return m;
+}
+
+// 1. OPENING (x=0): drifting particles + studio tag
+const open=new THREE.Group();scene.add(open);
+const N=500,pos=new Float32Array(N*3),seed=[];
+for(let i=0;i<N;i++){const r=4+Math.random()*16,a=Math.random()*6.283;
+  seed.push({r,a,y:(Math.random()-.5)*10,s:.05+Math.random()*.12});}
+const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xaec9ff,size:.07,transparent:true,opacity:.8,depthWrite:false}));
+open.add(pts);
+const tag=textMesh('A STUDIO ORIGINAL',1.1,'#cfd6e4','600 120px system-ui,sans-serif');tag.position.set(0,0,0);open.add(tag);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(2.2,.02,8,96),new THREE.MeshBasicMaterial({color:ACC}));open.add(ring);
+
+// 2. TYPOGRAPHY (x=40): per-letter 3D reveal on glass-like plate
+const typo=new THREE.Group();typo.position.set(40,0,0);scene.add(typo);
+const word='BUILD WEALTH',letters=[];
+word.split('').forEach((ch,i)=>{ if(ch===' ')return;
+  const m=textMesh(ch,2.4,i<5?'#ffffff':'#f4b942','800 200px system-ui,sans-serif');
+  m.position.x=(i-(word.length-1)/2)*1.45;typo.add(m);letters.push({m,i});});
+const plate=new THREE.Mesh(new THREE.BoxGeometry(19,4,.3),new THREE.MeshStandardMaterial({color:0x16203a,metalness:.7,roughness:.25}));
+plate.position.z=-.6;plate.receiveShadow=true;typo.add(plate);
+
+// 3. BUSINESS (x=80): skyscraper grid growing
+const city=new THREE.Group();city.position.set(80,0,0);scene.add(city);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:0x10141f,roughness:.9}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;city.add(ground);
+const bGeo=new THREE.BoxGeometry(1,1,1),bld=[];
+for(let gx=-4;gx<=4;gx++)for(let gz=-4;gz<=4;gz++){
+  const d=Math.hypot(gx,gz),h=1+Math.max(0,7-d*1.4)*(0.6+((gx*7+gz*13)%5)/6);
+  const mat=new THREE.MeshStandardMaterial({color:d<1?WARM:0x2a3a5c,metalness:.6,roughness:.3,emissive:d<1?0x3a2a05:0x000000});
+  const b=new THREE.Mesh(bGeo,mat);b.castShadow=b.receiveShadow=true;
+  b.position.set(gx*2.4,0,gz*2.4);b.userData={h,d};b.scale.set(1.5,.01,1.5);city.add(b);bld.push(b);}
+
+// 4. PSYCHOLOGY (x=120): neural network brain
+const brain=new THREE.Group();brain.position.set(120,0,0);scene.add(brain);
+const nodes=[],NN=70;
+for(let i=0;i<NN;i++){let p;do{p=new THREE.Vector3((Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2);}while(p.length()>1);
+  p.set(p.x*4.2,p.y*3.1,p.z*3.4);nodes.push(p);}
+const nm=new THREE.MeshStandardMaterial({color:ACC,emissive:0x0a3a4a,roughness:.4});
+const nGeo=new THREE.SphereGeometry(.14,12,12),nMesh=[];
+nodes.forEach(p=>{const m=new THREE.Mesh(nGeo,nm.clone());m.position.copy(p);brain.add(m);nMesh.push(m);});
+const lp=[];for(let i=0;i<NN;i++)for(let j=i+1;j<NN;j++)if(nodes[i].distanceTo(nodes[j])<2.1){lp.push(nodes[i].x,nodes[i].y,nodes[i].z,nodes[j].x,nodes[j].y,nodes[j].z);}
+const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+const lines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x5b7fb5,transparent:true,opacity:0}));brain.add(lines);
+
+// 5. ENDING (x=160)
+const end=new THREE.Group();end.position.set(160,0,0);scene.add(end);
+const t1=textMesh('THINK. BUILD. GROW.',1.6,'#ffffff');end.add(t1);
+const t2=textMesh('MOTION STUDIO',.7,'#4cc9f0','600 120px system-ui,sans-serif');t2.position.y=-1.5;end.add(t2);
+const bar=new THREE.Mesh(new THREE.PlaneGeometry(6,.04),new THREE.MeshBasicMaterial({color:WARM}));bar.position.y=-.85;end.add(bar);
+
+// camera keyframes [t, pos, look]
+const K=[[0,[0,2,14],[0,0,0]],[4,[0,.8,7],[0,0,0]],[6,[40,0,12],[40,0,0]],[9.5,[40,0,8.5],[40,0,0]],
+[11,[80,16,30],[80,3,0]],[14,[66,9,22],[80,3,0]],[17,[94,9,22],[80,3,0]],[19,[120,0,16],[120,0,0]],
+[24,[120,0,9],[120,0,0]],[26,[160,0,12],[160,0,0]],[30,[160,0,8.5],[160,0,0]]];
+const SUBS=[[0.5,4.5,'Every empire starts as an idea.'],[6,10,'Build assets, not just income.'],[11,15,'Systems scale. Effort does not.'],
+[20,24,'Your mind is the first investment.'],[26,30,'Think. Build. Grow.']];
+const LABELS=[[0,'Opening'],[5,'3D typography'],[10,'Business visualization'],[15,'Camera transition'],[20,'Psychology'],[25,'Ending']];
+const v3=new THREE.Vector3(),l3=new THREE.Vector3();
+
+function update(t){
+  t=clamp(t,0,DURATION);
+  // camera
+  let i=0;while(i<K.length-2&&t>K[i+1][0])i++;
+  const a=K[i],b=K[i+1],k=ss((t-a[0])/(b[0]-a[0]));
+  cam.position.set(lerp(a[1][0],b[1][0],k),lerp(a[1][1],b[1][1],k),lerp(a[1][2],b[1][2],k));
+  l3.set(lerp(a[2][0],b[2][0],k),lerp(a[2][1],b[2][1],k),lerp(a[2][2],b[2][2],k));cam.lookAt(l3);
+  rim.position.set(cam.position.x+6,cam.position.y+4,cam.position.z-2);
+  key.position.set(l3.x+40,40,30);key.target.position.copy(l3);
+  // opening
+  const pa=pg.attributes.position.array;
+  for(let n=0;n<N;n++){const s=seed[n],ang=s.a+t*s.s;pa[n*3]=Math.cos(ang)*s.r;pa[n*3+1]=s.y+Math.sin(t*.4+n)*.3;pa[n*3+2]=Math.sin(ang)*s.r-4;}
+  pg.attributes.position.needsUpdate=true;
+  tag.material.opacity=ss((t-.8)/1.2)*(1-ss((t-4.2)/.6));ring.scale.setScalar(.6+ss(t/3)*.5);ring.material.opacity=1-ss((t-4)/1);
+  ring.material.transparent=true;
+  // typography
+  letters.forEach(({m,i})=>{const k=ss((t-6.4-i*.1)/.7);m.material.opacity=k;m.position.z=lerp(-3,.1,k);m.rotation.y=lerp(-1.2,0,k);});
+  plate.rotation.y=Math.sin(t*.5)*.03;
+  // city growth
+  bld.forEach(b=>{const k=ss((t-11-b.userData.d*.18)/1.4);const h=Math.max(.01,b.userData.h*k);b.scale.y=h;b.position.y=h/2;});
+  // brain
+  const rev=ss((t-19.5)/1.5);lines.material.opacity=.55*rev;
+  nMesh.forEach((m,n)=>{const pulse=.5+.5*Math.sin(t*3-nodes[n].x*.9);m.scale.setScalar(rev*(.8+pulse*.7));m.material.emissiveIntensity=.4+pulse*1.2;});
+  brain.rotation.y=t*.15;
+  // ending
+  const e=ss((t-26.3)/.8);t1.material.opacity=e;t2.material.opacity=ss((t-27.3)/.8);bar.scale.x=ss((t-26.8)/1);
+  // overlays
+  let s='';for(const q of SUBS)if(t>=q[0]&&t<q[1])s=q[2];document.getElementById('sub').textContent=s;
+  let lab='';for(const q of LABELS)if(t>=q[0])lab=q[1];document.getElementById('lab').textContent=lab+' · '+t.toFixed(1)+'s';
+  document.getElementById('fade').style.opacity=ss((t-28.8)/1.2);
+  renderer.render(scene,cam);
+}
+window.setTime=update;
+let playing=true,T=0,last=performance.now();
+function loop(now){if(playing){T+=(now-last)/1000;if(T>DURATION)T=0;update(T);}last=now;requestAnimationFrame(loop);}
+document.getElementById('pp').onclick=e=>{playing=!playing;e.target.textContent=playing?'Pause':'Play';};
+update(0);requestAnimationFrame(loop);
+})();
+</script></body></html>

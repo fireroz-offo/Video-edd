@@ -1,0 +1,5 @@
+{ "name": "ultimate-ai-motion-studio", "version": "1.0.0", "type": "module",
+  "scripts": { "check": "bash tools/check-env.sh", "serve": "npx http-server . -p 8080",
+    "render:short": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-short.mp4 --format short --fps 30",
+    "render:long": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-long.mp4 --format long --fps 30" },
+  "devDependencies": { "puppeteer": "^22.0.0" } }

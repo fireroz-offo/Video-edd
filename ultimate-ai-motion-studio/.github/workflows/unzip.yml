@@ -1,0 +1,30 @@
+name: Unzip Studio
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Path of the zip inside the repo"
+        default: "ultimate-ai-motion-studio.zip"
+  push:
+    paths: ["ultimate-ai-motion-studio.zip"]
+permissions:
+  contents: write
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    env:
+      ZIP: ${{ github.event.inputs.zip_path || 'ultimate-ai-motion-studio.zip' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip (never overwrite existing files)
+        run: |
+          test -f "$ZIP" || { echo "Zip not found: $ZIP"; exit 1; }
+          unzip -n "$ZIP" -d .
+          ls -la
+      - name: Commit extracted files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet && echo "Nothing to commit" || git commit -m "Unzip studio files"
+          git push

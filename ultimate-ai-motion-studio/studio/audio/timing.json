@@ -1,0 +1,2 @@
+{ "voiceover": "studio/audio/vo.mp3",
+  "cues": [ { "t": 5.0, "type": "sfx", "file": "whoosh.wav", "gain_db": -8, "note": "camera travel to title" } ] }
