@@ -1,2 +1,31 @@
-{ "voiceover": "studio/audio/vo.mp3",
-  "cues": [ { "t": 5.0, "type": "sfx", "file": "whoosh.wav", "gain_db": -8, "note": "camera travel to title" } ] }
+{
+  "notes": [
+    "Paths are relative to the project folder. Set voiceover / music to a file path to enable them; null disables them.",
+    "A configured file that does not exist stops the build (use --allow-missing to skip it with a warning instead).",
+    "Cue 'preset' = built-in sound synthesised by tools/make-sfx.mjs (whoosh, impact, riser, tick). Cue 'file' = your own audio file.",
+    "Cue times are scene seconds. gain_db is applied to the cue before mixing.",
+    "Cues below match demo-studio.html: camera travels 4-6 s, 9.5-11 s, 17-19 s, 24-26 s; letters land from 6.4 s; city grows from 11 s; brain reveals at 19.5 s; ending at 26.3 s."
+  ],
+  "voiceover": null,
+  "music": null,
+  "mix": {
+    "voice_lufs": -14,
+    "music_lufs": -18,
+    "duck_db": -12,
+    "master_lufs": -14,
+    "true_peak_db": -1.5,
+    "loop_music": true,
+    "music_fade_out_s": 1.5
+  },
+  "cues": [
+    { "t": 4.6,  "type": "sfx", "preset": "whoosh", "gain_db": -8,  "note": "camera travel opening -> title" },
+    { "t": 6.5,  "type": "sfx", "preset": "impact", "gain_db": -11, "note": "title letters land" },
+    { "t": 8.5,  "type": "sfx", "preset": "riser",  "gain_db": -14, "note": "build-up to the city" },
+    { "t": 11.0, "type": "sfx", "preset": "impact", "gain_db": -9,  "note": "city starts to grow" },
+    { "t": 17.2, "type": "sfx", "preset": "riser",  "gain_db": -14, "note": "build-up to the brain" },
+    { "t": 17.5, "type": "sfx", "preset": "whoosh", "gain_db": -8,  "note": "camera travel city -> brain" },
+    { "t": 19.5, "type": "sfx", "preset": "impact", "gain_db": -12, "note": "neural network reveal" },
+    { "t": 24.6, "type": "sfx", "preset": "whoosh", "gain_db": -8,  "note": "camera travel brain -> ending" },
+    { "t": 26.3, "type": "sfx", "preset": "impact", "gain_db": -8,  "note": "end title lands" }
+  ]
+}

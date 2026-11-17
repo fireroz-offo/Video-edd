@@ -1,5 +1,26 @@
-{ "name": "ultimate-ai-motion-studio", "version": "1.0.0", "type": "module",
-  "scripts": { "check": "bash tools/check-env.sh", "serve": "npx http-server . -p 8080",
-    "render:short": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-short.mp4 --format short --fps 30",
-    "render:long": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-long.mp4 --format long --fps 30" },
-  "devDependencies": { "puppeteer": "^22.0.0" } }
+{
+  "name": "ultimate-ai-motion-studio",
+  "version": "1.1.0",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "check": "bash tools/check-env.sh",
+    "serve": "http-server . -p 8080",
+    "sfx": "node tools/make-sfx.mjs",
+    "render:short": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-short.video.mp4 --format short --fps 30",
+    "render:long": "node tools/render.mjs studio/scenes/demo-studio.html studio/renders/demo-long.video.mp4 --format long --fps 30",
+    "mix": "node tools/mix.mjs",
+    "verify": "node tools/verify.mjs",
+    "build": "node tools/build.mjs",
+    "build:short": "node tools/build.mjs --format short",
+    "build:long": "node tools/build.mjs --format long",
+    "smoke": "node tools/build.mjs --format short --start 0 --end 3 --name smoke"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "puppeteer": "^22.0.0"
+  }
+}
