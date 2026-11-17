@@ -2,6 +2,12 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Studio Demo – 30s</title>
+<script>
+// Render mode is switched on by tools/render.mjs (window.__RENDER__) or by opening the page with ?render=1.
+// In render mode: no preview UI, no wall-clock playback loop - only window.setTime(t) draws frames.
+window.__RENDER__ = !!window.__RENDER__ || /[?&]render=1(&|$)/.test(location.search);
+if (window.__RENDER__) document.documentElement.className += ' render';
+</script>
 <style>
 html,body{margin:0;height:100%;background:#0b0d12;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Inter,sans-serif}
 canvas{display:block}
@@ -9,19 +15,30 @@ canvas{display:block}
 #ui{position:fixed;left:10px;top:10px;color:#9aa4b2;font-size:12px}
 #ui button{background:#1b2030;color:#cfd6e4;border:1px solid #2c3550;border-radius:6px;padding:4px 10px}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none}
+html.render #ui{display:none!important}
 </style></head><body>
 <div id="ui"><button id="pp">Pause</button> <span id="lab"></span></div>
 <div id="sub"></div><div id="fade"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// Offline fallback: npm install puts the same Three.js r128 build in node_modules.
+window.THREE||document.write('<script src="../../node_modules/three/build/three.min.js"><\/script>');
+</script>
+<script>
 (function(){
 const DURATION=30; window.DURATION=DURATION;
+const RENDER=!!window.__RENDER__;                       // set by tools/render.mjs
+const SUBS_MODE=window.__SUBS__==='none'?'none':'dom';  // 'none' = subtitles are added later by tools/mix.mjs
 const ACC=0x4cc9f0, WARM=0xf4b942;
 const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 const ss=x=>{x=clamp(x);return x*x*(3-2*x)};
 const lerp=(a,b,k)=>a+(b-a)*k;
+// Seeded PRNG (mulberry32): particles and neurons are identical in every render and preview.
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rand=mulberry32(0x5eed1234);
 
-const renderer=new THREE.WebGLRenderer({antialias:true});
+// preserveDrawingBuffer in render mode so screenshots always see the frame drawn by setTime()
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:RENDER});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true;
 document.body.appendChild(renderer.domElement);
@@ -53,8 +70,8 @@ function textMesh(str,h,color='#ffffff',font='700 180px system-ui,sans-serif'){
 // 1. OPENING (x=0): drifting particles + studio tag
 const open=new THREE.Group();scene.add(open);
 const N=500,pos=new Float32Array(N*3),seed=[];
-for(let i=0;i<N;i++){const r=4+Math.random()*16,a=Math.random()*6.283;
-  seed.push({r,a,y:(Math.random()-.5)*10,s:.05+Math.random()*.12});}
+for(let i=0;i<N;i++){const r=4+rand()*16,a=rand()*6.283;
+  seed.push({r,a,y:(rand()-.5)*10,s:.05+rand()*.12});}
 const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
 const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xaec9ff,size:.07,transparent:true,opacity:.8,depthWrite:false}));
 open.add(pts);
@@ -84,7 +101,7 @@ for(let gx=-4;gx<=4;gx++)for(let gz=-4;gz<=4;gz++){
 // 4. PSYCHOLOGY (x=120): neural network brain
 const brain=new THREE.Group();brain.position.set(120,0,0);scene.add(brain);
 const nodes=[],NN=70;
-for(let i=0;i<NN;i++){let p;do{p=new THREE.Vector3((Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2);}while(p.length()>1);
+for(let i=0;i<NN;i++){let p;do{p=new THREE.Vector3((rand()-.5)*2,(rand()-.5)*2,(rand()-.5)*2);}while(p.length()>1);
   p.set(p.x*4.2,p.y*3.1,p.z*3.4);nodes.push(p);}
 const nm=new THREE.MeshStandardMaterial({color:ACC,emissive:0x0a3a4a,roughness:.4});
 const nGeo=new THREE.SphereGeometry(.14,12,12),nMesh=[];
@@ -105,7 +122,10 @@ const K=[[0,[0,2,14],[0,0,0]],[4,[0,.8,7],[0,0,0]],[6,[40,0,12],[40,0,0]],[9.5,[
 [24,[120,0,9],[120,0,0]],[26,[160,0,12],[160,0,0]],[30,[160,0,8.5],[160,0,0]]];
 const SUBS=[[0.5,4.5,'Every empire starts as an idea.'],[6,10,'Build assets, not just income.'],[11,15,'Systems scale. Effort does not.'],
 [20,24,'Your mind is the first investment.'],[26,30,'Think. Build. Grow.']];
+// Single source of truth for captions: tools/render.mjs exports these to a .srt file next to the video.
+window.SUBTITLES=SUBS.map(([start,end,text])=>({start,end,text}));
 const LABELS=[[0,'Opening'],[5,'3D typography'],[10,'Business visualization'],[15,'Camera transition'],[20,'Psychology'],[25,'Ending']];
+const subEl=document.getElementById('sub'),labEl=document.getElementById('lab'),fadeEl=document.getElementById('fade');
 const v3=new THREE.Vector3(),l3=new THREE.Vector3();
 
 function update(t){
@@ -134,16 +154,22 @@ function update(t){
   brain.rotation.y=t*.15;
   // ending
   const e=ss((t-26.3)/.8);t1.material.opacity=e;t2.material.opacity=ss((t-27.3)/.8);bar.scale.x=ss((t-26.8)/1);
-  // overlays
-  let s='';for(const q of SUBS)if(t>=q[0]&&t<q[1])s=q[2];document.getElementById('sub').textContent=s;
-  let lab='';for(const q of LABELS)if(t>=q[0])lab=q[1];document.getElementById('lab').textContent=lab+' · '+t.toFixed(1)+'s';
-  document.getElementById('fade').style.opacity=ss((t-28.8)/1.2);
+  // overlays: subtitles are part of the picture; the debug label never is
+  if(SUBS_MODE==='dom'){let s='';for(const q of SUBS)if(t>=q[0]&&t<q[1])s=q[2];subEl.textContent=s;}
+  if(!RENDER){let lab='';for(const q of LABELS)if(t>=q[0])lab=q[1];labEl.textContent=lab+' · '+t.toFixed(1)+'s';}
+  fadeEl.style.opacity=ss((t-28.8)/1.2);
   renderer.render(scene,cam);
 }
 window.setTime=update;
-let playing=true,T=0,last=performance.now();
-function loop(now){if(playing){T+=(now-last)/1000;if(T>DURATION)T=0;update(T);}last=now;requestAnimationFrame(loop);}
-document.getElementById('pp').onclick=e=>{playing=!playing;e.target.textContent=playing?'Pause':'Play';};
-update(0);requestAnimationFrame(loop);
+if(!RENDER){
+  // Interactive preview only. Never runs while rendering, so it cannot overwrite frames set by setTime().
+  let playing=true,T=0,last=performance.now();
+  const loop=now=>{if(playing){T+=(now-last)/1000;if(T>DURATION)T=0;update(T);}last=now;requestAnimationFrame(loop);};
+  document.getElementById('pp').onclick=e=>{playing=!playing;e.target.textContent=playing?'Pause':'Play';};
+  update(0);requestAnimationFrame(loop);
+}
+// Ready signal: scene built and first frame drawn. tools/render.mjs waits for window.READY before capturing.
+update(0);
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{update(0);window.READY=true;});
 })();
 </script></body></html>

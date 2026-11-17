@@ -22,7 +22,10 @@ Say e.g. "Use MODE 3 on studio/storyboards/my-script.md".
 Script → timing → scenes → storyboard (studio/storyboards) → assets/scenes (studio/scenes) → camera/light/transitions → voiceover sync → sfx/music cues (studio/audio) → render (studio/renders) → QC → final (studio/exports).
 
 ## Scene contract
-Every scene HTML exposes `window.setTime(seconds)` and `window.DURATION` so the renderer can capture exact frames (deterministic, no wall-clock dependence).
+Every scene HTML exposes `window.setTime(seconds)`, `window.DURATION` and sets `window.READY = true` after its first frame, so the renderer can capture exact frames (deterministic, no wall-clock dependence). While `window.__RENDER__` is true the scene must hide preview UI and not run its own animation loop. Use a seeded random generator, never `Math.random()`. Optional: `window.SUBTITLES = [{start,end,text}]` (exported to an .srt).
+
+## Commands
+`npm run check` (env, exit 1 if not ready) · `npm run smoke` (3 s test build) · `npm run build:short` / `build:long` (check → sound effects → render → mix → verify) · `node tools/mix.mjs` · `node tools/verify.mjs` · `npm run sfx`. Audio cues live in `studio/audio/timing.json`; voiceover and music are supplied by the user.
 
 ## Visual identity
 Dark navy background (#0b0d12), one accent (#4cc9f0), warm secondary (#f4b942), type: system sans / Inter. Soft key light + rim light, subtle depth fog.
@@ -31,4 +34,4 @@ Dark navy background (#0b0d12), one accent (#4cc9f0), warm secondary (#f4b942), 
 Business: skyscrapers, ecosystems, money flows. Finance: 3D charts, wealth scale, comparisons. Psychology: brain, neural nets, bias diagrams. Self-improvement: time, habit loops, transformation arcs.
 
 ## Layout
-`studio/scenes/demo-studio.html` is the working demo. `tools/` has env check + render script.
+`studio/scenes/demo-studio.html` is the working demo. `tools/` has env check, renderer, sound-effect generator, mixer, verifier and the build script.
